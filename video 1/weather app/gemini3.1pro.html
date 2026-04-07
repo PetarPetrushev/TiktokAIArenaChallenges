@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>London Weather | Glassmorphism</title>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- GSAP for Animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            color: white;
+            margin: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Dynamic Background Themes */
+        .theme-base {
+            transition: background 1.5s ease-in-out;
+            background-size: 200% 200%;
+        }
+        
+        .theme-day {
+            background: linear-gradient(135deg, #2fa3ff 0%, #6dd5fa 50%, #fbd786 100%);
+            animation: gradient-shift 15s ease infinite;
+        }
+        
+        .theme-night {
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            animation: gradient-shift 15s ease infinite;
+        }
+
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Apple Weather Glassmorphism Effect */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15);
+        }
+
+        /* Subtle text shadow for better readability over varied backgrounds */
+        .text-shadow { text-shadow: 0 2px 10px rgba(0,0,0,0.15); }
+        
+        /* Temperature Bar styling for forecast */
+        .temp-bar-bg { background: rgba(0, 0, 0, 0.2); }
+        .temp-bar-fill { background: linear-gradient(90deg, #a8edea 0%, #fed6e3 100%); }
+    </style>
+</head>
+<body id="app-body" class="theme-base theme-day flex items-center justify-center py-10 px-4 md:px-0">
+
+    <!-- Loading State -->
+    <div id="loader" class="absolute inset-0 flex flex-col items-center justify-center z-50">
+        <i data-lucide="loader-2" class="w-12 h-12 animate-spin mb-4 shadow-sm"></i>
+        <p class="text-xl font-light tracking-wide">Fetching Local Weather...</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="error-container" class="hidden absolute inset-0 flex items-center justify-center z-50 px-6">
+        <div class="glass-panel rounded-3xl p-8 text-center max-w-lg">
+            <i data-lucide="alert-triangle" class="w-16 h-16 mx-auto mb-4 text-red-300"></i>
+            <h2 class="text-2xl font-semibold mb-2">Data Unavailable</h2>
+            <p id="error-message" class="text-white/80">Could not retrieve weather data.</p>
+            <button onclick="fetchWeather()" class="mt-6 px-6 py-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors border border-white/30">
+                Try Again
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Wrapper -->
+    <main id="weather-content" class="w-full max-w-3xl hidden flex-col gap-6 relative z-10">
+        
+        <!-- Hero Section: Current Weather -->
+        <div class="glass-panel rounded-[2.5rem] p-8 md:p-12 text-center current-card relative overflow-hidden">
+            <h1 class="text-4xl md:text-5xl font-light tracking-wide mb-1 text-shadow">London</h1>
+            <p class="text-lg opacity-80 mb-6 font-medium tracking-wider">United Kingdom</p>
+            
+            <div class="flex flex-col items-center justify-center mb-6">
+                <!-- Icon and Description container -->
+                <div class="flex items-center gap-4 mb-2">
+                    <div id="current-icon-wrapper" class="drop-shadow-lg">
+                        <i data-lucide="cloud" class="w-14 h-14" id="current-icon"></i>
+                    </div>
+                </div>
+                
+                <!-- Animated Temperature -->
+                <div class="flex items-start justify-center">
+                    <h2 class="text-8xl md:text-9xl font-semibold tracking-tighter text-shadow" id="current-temp">0</h2>
+                    <span class="text-4xl md:text-5xl font-medium mt-2 md:mt-4 text-shadow">°C</span>
+                </div>
+                
+                <p class="text-2xl font-medium mt-2 text-shadow capitalize" id="current-desc">Loading...</p>
+            </div>
+
+            <!-- Current Detailed Stats Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 border-t border-white/20 pt-8" id="current-stats">
+                <div class="flex flex-col items-center">
+                    <i data-lucide="thermometer" class="w-6 h-6 mb-2 opacity-70"></i>
+                    <span class="text-sm opacity-70 mb-1">Feels Like</span>
+                    <span class="text-xl font-medium" id="stat-feels">--°</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <i data-lucide="wind" class="w-6 h-6 mb-2 opacity-70"></i>
+                    <span class="text-sm opacity-70 mb-1">Wind</span>
+                    <span class="text-xl font-medium" id="stat-wind">-- km/h</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <i data-lucide="droplets" class="w-6 h-6 mb-2 opacity-70"></i>
+                    <span class="text-sm opacity-70 mb-1">Humidity</span>
+                    <span class="text-xl font-medium" id="stat-humidity">--%</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <i data-lucide="arrow-down-to-line" class="w-6 h-6 mb-2 opacity-70"></i>
+                    <span class="text-sm opacity-70 mb-1">Precipitation</span>
+                    <span class="text-xl font-medium" id="stat-precip">-- mm</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7-Day Forecast Grid -->
+        <div class="glass-panel rounded-[2rem] p-6 md:p-8 forecast-card">
+            <h3 class="uppercase tracking-widest text-xs md:text-sm text-white/70 font-semibold mb-5 flex items-center">
+                <i data-lucide="calendar-days" class="w-4 h-4 mr-2"></i> 7-Day Forecast
+            </h3>
+            
+            <div id="forecast-list" class="flex flex-col gap-1">
+                <!-- Dynamic Rows injected here via JS -->
+            </div>
+        </div>
+        
+    </main>
+
+    <script>
+        // API Configuration
+        const API_URL = 'https://api.open-meteo.com/v1/forecast?latitude=51.5074&longitude=-0.1278&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FLondon';
+
+        // WMO Weather Code Mapper
+        const getWeatherData = (code, isDay = 1) => {
+            const map = {
+                0: { desc: 'Clear sky', icon: isDay ? 'sun' : 'moon' },
+                1: { desc: 'Mainly clear', icon: isDay ? 'cloud-sun' : 'cloud-moon' },
+                2: { desc: 'Partly cloudy', icon: isDay ? 'cloud-sun' : 'cloud-moon' },
+                3: { desc: 'Overcast', icon: 'cloud' },
+                45: { desc: 'Fog', icon: 'cloud-fog' },
+                48: { desc: 'Rime fog', icon: 'cloud-fog' },
+                51: { desc: 'Light drizzle', icon: 'cloud-drizzle' },
+                53: { desc: 'Moderate drizzle', icon: 'cloud-drizzle' },
+                55: { desc: 'Dense drizzle', icon: 'cloud-drizzle' },
+                56: { desc: 'Freezing drizzle', icon: 'cloud-drizzle' },
+                57: { desc: 'Dense freezing drizzle', icon: 'cloud-drizzle' },
+                61: { desc: 'Slight rain', icon: 'cloud-rain' },
+                63: { desc: 'Moderate rain', icon: 'cloud-rain' },
+                65: { desc: 'Heavy rain', icon: 'cloud-rain' },
+                66: { desc: 'Light freezing rain', icon: 'cloud-hail' },
+                67: { desc: 'Heavy freezing rain', icon: 'cloud-hail' },
+                71: { desc: 'Slight snow', icon: 'cloud-snow' },
+                73: { desc: 'Moderate snow', icon: 'cloud-snow' },
+                75: { desc: 'Heavy snow', icon: 'cloud-snow' },
+                77: { desc: 'Snow grains', icon: 'cloud-snow' },
+                80: { desc: 'Slight rain showers', icon: 'cloud-rain' },
+                81: { desc: 'Moderate rain showers', icon: 'cloud-rain' },
+                82: { desc: 'Violent rain showers', icon: 'cloud-lightning' },
+                85: { desc: 'Slight snow showers', icon: 'cloud-snow' },
+                86: { desc: 'Heavy snow showers', icon: 'cloud-snow' },
+                95: { desc: 'Thunderstorm', icon: 'cloud-lightning' },
+                96: { desc: 'Thunderstorm, slight hail', icon: 'cloud-lightning' },
+                99: { desc: 'Thunderstorm, heavy hail', icon: 'cloud-lightning' }
+            };
+            return map[code] || { desc: 'Unknown', icon: 'help-circle' };
+        };
+
+        // Format Date to Day string (e.g., "Mon", "Tue")
+        const getDayName = (dateString, index) => {
+            if (index === 0) return "Today";
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-GB', { weekday: 'short' });
+        };
+
+        // Initialize App
+        async function fetchWeather() {
+            // UI Resets
+            document.getElementById('loader').classList.remove('hidden');
+            document.getElementById('error-container').classList.add('hidden');
+            document.getElementById('weather-content').classList.add('hidden');
+            lucide.createIcons();
+
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                renderUI(data);
+
+            } catch (error) {
+                console.error("Failed to fetch weather:", error);
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('error-container').classList.remove('hidden');
+            }
+        }
+
+        // Render Data to DOM
+        function renderUI(data) {
+            const { current, daily } = data;
+            
+            // --- 1. Set Theme based on Time of Day ---
+            const bodyStyle = document.getElementById('app-body');
+            if (current.is_day) {
+                bodyStyle.classList.add('theme-day');
+                bodyStyle.classList.remove('theme-night');
+            } else {
+                bodyStyle.classList.add('theme-night');
+                bodyStyle.classList.remove('theme-day');
+            }
+
+            // --- 2. Update Current Weather ---
+            const currentInfo = getWeatherData(current.weather_code, current.is_day);
+            document.getElementById('current-desc').innerText = currentInfo.desc;
+            
+            // Rebuild the icon node dynamically to update it cleanly via Lucide
+            const iconWrapper = document.getElementById('current-icon-wrapper');
+            iconWrapper.innerHTML = `<i data-lucide="${currentInfo.icon}" class="w-14 h-14"></i>`;
+            
+            // Update Text Stats
+            document.getElementById('stat-feels').innerText = current.apparent_temperature.toFixed(1) + '°';
+            document.getElementById('stat-wind').innerText = current.wind_speed_10m.toFixed(1) + ' km/h';
+            document.getElementById('stat-humidity').innerText = current.relative_humidity_2m + '%';
+            document.getElementById('stat-precip').innerText = current.precipitation + ' mm';
+
+            // --- 3. Build 7-Day Forecast ---
+            const forecastList = document.getElementById('forecast-list');
+            forecastList.innerHTML = ''; // Clear previous
+
+            // Calculate global min and max for the 7 days to scale progress bars correctly
+            const globalMin = Math.min(...daily.temperature_2m_min);
+            const globalMax = Math.max(...daily.temperature_2m_max);
+            const rangeSpan = globalMax - globalMin;
+
+            daily.time.forEach((time, index) => {
+                const dayMin = daily.temperature_2m_min[index];
+                const dayMax = daily.temperature_2m_max[index];
+                const dayInfo = getWeatherData(daily.weather_code[index], 1); // Assume day icons for forecast
+                
+                // Calculate properties for the visual temperature bar
+                const leftPercent = ((dayMin - globalMin) / rangeSpan) * 100;
+                const widthPercent = ((dayMax - dayMin) / rangeSpan) * 100;
+
+                const rowHtml = `
+                    <div class="forecast-row flex items-center justify-between py-3 border-b border-white/10 last:border-0 opacity-0 transform translate-y-4">
+                        <div class="w-20 text-lg font-medium">${getDayName(time, index)}</div>
+                        <div class="flex flex-col items-center justify-center w-12 pt-1">
+                            <i data-lucide="${dayInfo.icon}" class="w-6 h-6 mb-1 drop-shadow-sm"></i>
+                        </div>
+                        <div class="flex-1 flex items-center justify-end gap-3 pl-4">
+                            <span class="text-white/60 font-medium w-8 text-right">${Math.round(dayMin)}°</span>
+                            <div class="w-24 md:w-32 h-1.5 rounded-full temp-bar-bg relative overflow-hidden hidden sm:block">
+                                <div class="absolute h-full rounded-full temp-bar-fill" style="left: ${leftPercent}%; width: ${widthPercent}%;"></div>
+                            </div>
+                            <span class="text-white font-medium w-8 text-right">${Math.round(dayMax)}°</span>
+                        </div>
+                    </div>
+                `;
+                forecastList.insertAdjacentHTML('beforeend', rowHtml);
+            });
+
+            // Re-render all Lucide Icons
+            lucide.createIcons();
+
+            // Switch UI state
+            document.getElementById('loader').classList.add('hidden');
+            document.getElementById('weather-content').classList.remove('hidden');
+
+            // --- 4. Trigger GSAP Animations ---
+            playAnimations(current.temperature_2m);
+        }
+
+        // GSAP Animations
+        function playAnimations(targetTemp) {
+            const tl = gsap.timeline();
+
+            // Slide up and fade in the Main Cards
+            tl.fromTo(".current-card", 
+                { y: 40, opacity: 0 }, 
+                { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" }
+            )
+            .fromTo(".forecast-card",
+                { y: 40, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" },
+                "-=0.6"
+            )
+            // Stagger the current stats grid
+            .fromTo("#current-stats > div",
+                { y: 15, opacity: 0 },
+                { y: 0, opacity: 1, stagger: 0.1, duration: 0.5, ease: "power2.out" },
+                "-=0.4"
+            )
+            // Stagger the 7-day forecast rows
+            .to(".forecast-row", 
+                { y: 0, opacity: 1, stagger: 0.08, duration: 0.5, ease: "power2.out" },
+                "-=0.5"
+            );
+
+            // Animate Temperature Counting Up
+            const tempObj = { val: 0 };
+            document.getElementById('current-temp').innerText = '0';
+            
+            gsap.to(tempObj, {
+                val: targetTemp,
+                duration: 1.5,
+                ease: "power2.out",
+                delay: 0.2, // starts right as current card appears
+                onUpdate: function() {
+                    // Update DOM value inside the ongoing animation to simulate number ticking
+                    document.getElementById('current-temp').innerText = tempObj.val.toFixed(1);
+                }
+            });
+            
+            // Add a floating animation to the primary weather icon
+            gsap.to("#current-icon-wrapper", {
+                y: -8,
+                duration: 2,
+                repeat: -1,
+                yoyo: true,
+                ease: "sine.inOut"
+            });
+        }
+
+        // Boot
+        document.addEventListener('DOMContentLoaded', fetchWeather);
+    </script>
+</body>
+</html>

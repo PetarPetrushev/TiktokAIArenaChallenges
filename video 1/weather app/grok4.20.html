@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clima • London</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
+    />
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+      :root {
+        --primary: 234 179 8;
+      }
+
+      body {
+        font-family: "Inter", sans-serif;
+      }
+
+      .glass {
+        background: rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+      }
+
+      .night .glass {
+        background: rgba(15, 23, 42, 0.45);
+      }
+
+      .hero-bg {
+        transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .temperature {
+        font-size: 6.5rem;
+        line-height: 1;
+        font-weight: 600;
+        background: linear-gradient(135deg, #fff, #e0f2fe);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .night .temperature {
+        background: linear-gradient(135deg, #e0f2fe, #a5b4fc);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .forecast-card {
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .forecast-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.4);
+      }
+    </style>
+  </head>
+  <body
+    class="bg-gradient-to-br from-slate-900 to-indigo-950 text-white min-h-screen"
+  >
+    <div class="max-w-5xl mx-auto px-6 py-10">
+      <!-- Header -->
+      <div class="flex justify-between items-center mb-10">
+        <div class="flex items-center gap-3">
+          <i class="fa-solid fa-cloud-sun text-3xl text-yellow-400"></i>
+          <h1 class="text-3xl font-semibold tracking-tight">Clima</h1>
+        </div>
+        <div class="flex items-center gap-2 text-sm">
+          <div
+            id="location"
+            class="flex items-center gap-2 bg-white/10 px-5 py-2.5 rounded-3xl backdrop-blur-md"
+          >
+            <i class="fa-solid fa-location-dot"></i>
+            <span class="font-medium">London, United Kingdom</span>
+          </div>
+          <button
+            onclick="refreshWeather()"
+            class="p-3 hover:bg-white/10 rounded-2xl transition-colors"
+          >
+            <i class="fa-solid fa-arrow-rotate-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Current Weather -->
+      <div
+        id="current-weather"
+        class="hero-bg rounded-3xl glass p-10 mb-10 relative overflow-hidden"
+      >
+        <div class="flex justify-between">
+          <div>
+            <div id="current-date" class="text-lg opacity-70 mb-1"></div>
+            <div id="weather-desc" class="text-4xl font-light mb-6"></div>
+
+            <div class="flex items-baseline gap-1">
+              <div id="temperature" class="temperature">12</div>
+              <div class="text-5xl font-light text-white/60">°C</div>
+            </div>
+
+            <div class="flex gap-8 mt-8">
+              <div>
+                <div class="text-sm opacity-60">Feels like</div>
+                <div id="feels-like" class="text-2xl font-medium">11°</div>
+              </div>
+              <div>
+                <div class="text-sm opacity-60">Humidity</div>
+                <div id="humidity" class="text-2xl font-medium">68%</div>
+              </div>
+              <div>
+                <div class="text-sm opacity-60">Wind</div>
+                <div id="wind-speed" class="text-2xl font-medium">8 km/h</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Weather Icon -->
+          <div
+            id="weather-icon"
+            class="text-[180px] leading-none flex items-center justify-center w-64 h-64 opacity-90"
+          ></div>
+        </div>
+
+        <!-- Loading -->
+        <div
+          id="loading"
+          class="absolute inset-0 flex items-center justify-center hidden"
+        >
+          <div class="text-xl flex items-center gap-3">
+            <div
+              class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"
+            ></div>
+            Updating weather...
+          </div>
+        </div>
+      </div>
+
+      <!-- 7-Day Forecast -->
+      <div class="mb-6 flex items-center justify-between">
+        <h2 class="text-xl font-medium">7-Day Forecast</h2>
+        <div class="text-sm text-white/50">London, UK</div>
+      </div>
+
+      <div
+        id="forecast-grid"
+        class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4"
+      >
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <script>
+      // WMO Weather Code Mapping
+      const weatherCodes = {
+        0: { desc: "Clear sky", icon: "☀️", nightIcon: "🌙" },
+        1: { desc: "Mainly clear", icon: "🌤️", nightIcon: "☁️" },
+        2: { desc: "Partly cloudy", icon: "⛅", nightIcon: "☁️" },
+        3: { desc: "Overcast", icon: "☁️", nightIcon: "☁️" },
+        45: { desc: "Fog", icon: "🌫️", nightIcon: "🌫️" },
+        48: { desc: "Depositing rime fog", icon: "🌫️", nightIcon: "🌫️" },
+        51: { desc: "Light drizzle", icon: "🌦️", nightIcon: "🌧️" },
+        53: { desc: "Moderate drizzle", icon: "🌦️", nightIcon: "🌧️" },
+        55: { desc: "Dense drizzle", icon: "🌧️", nightIcon: "🌧️" },
+        61: { desc: "Light rain", icon: "🌦️", nightIcon: "🌧️" },
+        63: { desc: "Moderate rain", icon: "🌧️", nightIcon: "🌧️" },
+        65: { desc: "Heavy rain", icon: "⛈️", nightIcon: "⛈️" },
+        71: { desc: "Light snow", icon: "❄️", nightIcon: "❄️" },
+        73: { desc: "Moderate snow", icon: "❄️", nightIcon: "❄️" },
+        75: { desc: "Heavy snow", icon: "❄️", nightIcon: "❄️" },
+        80: { desc: "Rain showers", icon: "🌦️", nightIcon: "🌧️" },
+        95: { desc: "Thunderstorm", icon: "⛈️", nightIcon: "⛈️" },
+        99: { desc: "Thunderstorm with hail", icon: "🌨️", nightIcon: "🌨️" },
+      };
+
+      let isNight = false;
+
+      function getWeatherIcon(code, isDay) {
+        const data = weatherCodes[code] || {
+          desc: "Unknown",
+          icon: "❓",
+          nightIcon: "❓",
+        };
+        return isDay ? data.icon : data.nightIcon || data.icon;
+      }
+
+      async function fetchWeather() {
+        const loading = document.getElementById("loading");
+        loading.classList.remove("hidden");
+
+        try {
+          const res = await fetch(
+            "https://api.open-meteo.com/v1/forecast?latitude=51.5074&longitude=-0.1278&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FLondon",
+          );
+          const data = await res.json();
+
+          const current = data.current;
+          const daily = data.daily;
+
+          isNight = current.is_day === 0;
+          if (isNight) {
+            document.documentElement.classList.add("night");
+          } else {
+            document.documentElement.classList.remove("night");
+          }
+
+          // Update Current Weather
+          document.getElementById("temperature").textContent = Math.round(
+            current.temperature_2m,
+          );
+          document.getElementById("feels-like").textContent =
+            Math.round(current.apparent_temperature) + "°";
+          document.getElementById("humidity").textContent =
+            current.relative_humidity_2m + "%";
+          document.getElementById("wind-speed").textContent =
+            current.wind_speed_10m + " km/h";
+
+          const currentCode = current.weather_code;
+          const weatherInfo = weatherCodes[currentCode] || { desc: "Unknown" };
+          document.getElementById("weather-desc").textContent =
+            weatherInfo.desc;
+          document.getElementById("weather-icon").innerHTML =
+            `<span class="text-8xl">${getWeatherIcon(currentCode, current.is_day === 1)}</span>`;
+
+          // Current Date
+          const date = new Date();
+          const options = { weekday: "long", month: "long", day: "numeric" };
+          document.getElementById("current-date").textContent =
+            date.toLocaleDateString("en-GB", options);
+
+          // Forecast
+          renderForecast(daily);
+
+          // GSAP Animations
+          animateUI();
+        } catch (err) {
+          console.error(err);
+          document.getElementById("current-weather").innerHTML +=
+            `<div class="absolute inset-0 bg-red-500/10 flex items-center justify-center text-red-400">Failed to load weather data</div>`;
+        } finally {
+          loading.classList.add("hidden");
+        }
+      }
+
+      function renderForecast(daily) {
+        const grid = document.getElementById("forecast-grid");
+        grid.innerHTML = "";
+
+        for (let i = 0; i < 7; i++) {
+          const date = new Date(daily.time[i]);
+          const dayName = date.toLocaleDateString("en-GB", {
+            weekday: "short",
+          });
+          const icon = getWeatherIcon(daily.weather_code[i], true);
+
+          const card = document.createElement("div");
+          card.className = `forecast-card glass rounded-2xl p-6 text-center`;
+          card.innerHTML = `
+          <div class="text-sm opacity-70 mb-3">${dayName}</div>
+          <div class="text-5xl mb-4">${icon}</div>
+          <div class="flex justify-center gap-3 text-lg">
+            <span class="font-semibold">${Math.round(daily.temperature_2m_max[i])}°</span>
+            <span class="text-white/40">${Math.round(daily.temperature_2m_min[i])}°</span>
+          </div>
+        `;
+          grid.appendChild(card);
+        }
+      }
+
+      function animateUI() {
+        gsap.from("#current-weather", {
+          y: 60,
+          opacity: 0,
+          duration: 1.2,
+          ease: "power4.out",
+        });
+
+        gsap.from(".forecast-card", {
+          y: 40,
+          opacity: 0,
+          duration: 0.8,
+          stagger: 0.08,
+          delay: 0.6,
+          ease: "back.out(1.2)",
+        });
+      }
+
+      function refreshWeather() {
+        const current = document.getElementById("current-weather");
+        current.style.transition = "all 0.6s";
+        current.style.opacity = "0.6";
+        setTimeout(() => {
+          fetchWeather();
+          current.style.opacity = "1";
+        }, 400);
+      }
+
+      // Initialize
+      window.onload = () => {
+        fetchWeather();
+      };
+    </script>
+  </body>
+</html>
