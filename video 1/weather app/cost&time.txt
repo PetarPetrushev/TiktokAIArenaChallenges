@@ -1,0 +1,4 @@
+Gemini 3.1 Pro | gen time - 65398ms | latency - 2721ms | cost - $0.0998
+GPT 5.4 | Unknown - logging failed.
+Claude Opus 4.6 | gen time - 84685ms | latency - 1359ms | cost - $0.215
+Grok 4.20 | gen time - 13908ms | latency - 483ms | cost - $0.0192
